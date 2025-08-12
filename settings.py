@@ -1,11 +1,11 @@
-base_architecture = 'vgg19'
+ablate_prototype_selection = False
+base_architecture = 'resnet152'
 img_size = 224
-prototype_shape = (2000, 128, 1, 1)
-num_classes = 200
+prototype_shape = (20, 128, 1, 1)
+num_classes = 2
 prototype_activation_function = 'log'
 add_on_layers_type = 'regular'
-
-experiment_run = '003'
+mask_prototype_distance = True
 
 data_path = './datasets/cub200_cropped/'
 train_dir = data_path + 'train_cropped_augmented/'

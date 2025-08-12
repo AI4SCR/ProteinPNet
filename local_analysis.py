@@ -99,7 +99,7 @@ if check_test_accu:
         ]))
     test_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=test_batch_size, shuffle=True,
-        num_workers=4, pin_memory=False)
+        num_workers=1, pin_memory=False)
     log('test set size: {0}'.format(len(test_loader.dataset)))
 
     accu = tnt.test(model=ppnet_multi, dataloader=test_loader,

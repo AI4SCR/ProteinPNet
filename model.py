@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 import torch.nn.functional as F
 
-from resnet_features import resnet18_features, resnet34_features, resnet50_features, resnet101_features, resnet152_features
+from resnet_features import resnet18_features, resnet18_cords_features, resnet34_features, resnet50_features, resnet101_features, resnet152_features
 from densenet_features import densenet121_features, densenet161_features, densenet169_features, densenet201_features
 from vgg_features import vgg11_features, vgg11_bn_features, vgg13_features, vgg13_bn_features, vgg16_features, vgg16_bn_features,\
                          vgg19_features, vgg19_bn_features
@@ -11,6 +11,7 @@ from vgg_features import vgg11_features, vgg11_bn_features, vgg13_features, vgg1
 from receptive_field import compute_proto_layer_rf_info_v2
 
 base_architecture_to_features = {'resnet18': resnet18_features,
+                                 'resnet18_cords': resnet18_cords_features,
                                  'resnet34': resnet34_features,
                                  'resnet50': resnet50_features,
                                  'resnet101': resnet101_features,
@@ -33,7 +34,9 @@ class PPNet(nn.Module):
     def __init__(self, features, img_size, prototype_shape,
                  proto_layer_rf_info, num_classes, init_weights=True,
                  prototype_activation_function='log',
-                 add_on_layers_type='bottleneck'):
+                 add_on_layers_type='bottleneck',
+                 ablate_prototype_selection=False,
+):
 
         super(PPNet, self).__init__()
         self.img_size = img_size
@@ -103,7 +106,9 @@ class PPNet(nn.Module):
                 )
         
         self.prototype_vectors = nn.Parameter(torch.rand(self.prototype_shape),
-                                              requires_grad=True)
+                                              requires_grad=not ablate_prototype_selection)
+        if ablate_prototype_selection:
+            print(f"ablating prototype grad: {ablate_prototype_selection}")
 
         # do not make this just a tensor,
         # since it will not be moved automatically to gpu
@@ -169,13 +174,44 @@ class PPNet(nn.Module):
         distances = F.relu(x2_patch_sum + intermediate_result)
 
         return distances
+    
+    def _cosine_similarity_convolution(self, x, epsilon=1e-8):
+        """
+        Apply self.prototype_vectors as cosine-similarity filters on input x.
+        
+        Args:
+            x: Input tensor of shape [B, C, H, W]
+            epsilon: Small value to avoid division by zero.
+        
+        Returns:
+            similarities: Tensor of shape [B, num_prototypes, H', W'] 
+                        (cosine similarity per patch)
+        """
+        # Compute the dot product <x, p> for all patches and prototypes
+        xp = F.conv2d(input=x, weight=self.prototype_vectors)  # Shape: [B, num_prototypes, H', W']
+        
+        # Compute ||x|| for each patch (L2 norm of input patches)
+        x_norm = torch.sqrt(F.conv2d(input=x**2, 
+                                    weight=self.ones) + epsilon)  # Shape: [B, 1, H', W']
+        
+        # Compute ||p|| for each prototype (L2 norm of prototypes)
+        p_norm = torch.sqrt(torch.sum(self.prototype_vectors**2, dim=(1, 2, 3)))  # Shape: [num_prototypes]
+        p_norm = p_norm.view(1, -1, 1, 1)  # Reshape to [1, num_prototypes, 1, 1]
+        
+        # Cosine similarity: <x, p> / (||x|| * ||p||)
+        cosine_sim = xp / (x_norm * p_norm + epsilon)
+        
+        # If you want cosine *distance* instead (1 - similarity), uncomment:
+        return 1 - cosine_sim
+        # return cosine_sim
 
     def prototype_distances(self, x):
         '''
         x is the raw input
         '''
         conv_features = self.conv_features(x)
-        distances = self._l2_convolution(conv_features)
+        # distances = self._l2_convolution(conv_features)
+        distances = self._cosine_similarity_convolution(conv_features)
         return distances
 
     def distance_2_similarity(self, distances):
@@ -204,7 +240,8 @@ class PPNet(nn.Module):
     def push_forward(self, x):
         '''this method is needed for the pushing operation'''
         conv_output = self.conv_features(x)
-        distances = self._l2_convolution(conv_output)
+        # distances = self._l2_convolution(conv_output)
+        distances = self._cosine_similarity_convolution(conv_output)
         return conv_output, distances
 
     def prune_prototypes(self, prototypes_to_prune):
@@ -288,7 +325,9 @@ class PPNet(nn.Module):
 def construct_PPNet(base_architecture, pretrained=True, img_size=224,
                     prototype_shape=(2000, 512, 1, 1), num_classes=200,
                     prototype_activation_function='log',
-                    add_on_layers_type='bottleneck'):
+                    add_on_layers_type='bottleneck',
+                    ablate_prototype_selection=False
+):
     features = base_architecture_to_features[base_architecture](pretrained=pretrained)
     layer_filter_sizes, layer_strides, layer_paddings = features.conv_info()
     proto_layer_rf_info = compute_proto_layer_rf_info_v2(img_size=img_size,
@@ -303,5 +342,7 @@ def construct_PPNet(base_architecture, pretrained=True, img_size=224,
                  num_classes=num_classes,
                  init_weights=True,
                  prototype_activation_function=prototype_activation_function,
-                 add_on_layers_type=add_on_layers_type)
+                 add_on_layers_type=add_on_layers_type,
+                 ablate_prototype_selection=ablate_prototype_selection,
+                 )
 

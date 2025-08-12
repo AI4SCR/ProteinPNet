@@ -1,0 +1,1 @@
+sbatch --wrap="source ../graph_archetype_discovery/gad/bin/activate; python main.py" --time=72:00:00 --mem=16G

@@ -237,6 +237,49 @@ def resnet18_features(pretrained=False, **kwargs):
         model.load_state_dict(my_dict, strict=False)
     return model
 
+def resnet18_cords_features(pretrained=False, **kwargs):
+    """Constructs a ResNet-18 model for CORDS.
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+    """
+    import sys
+    sys.path.append("/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/ai4bmr-learn/src/ai4bmr_learn")
+    sys.path.append("/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/ai4bmr-learn/src")
+    sys.path = list(set(sys.path))
+    print(sys.path)
+
+    # import ai4bmr_learn
+
+    from ai4bmr_learn.models.backbones.timm import Backbone
+
+    kwargs = dict(
+        model_name='resnet18',
+        num_channels=43,
+        global_pool='avg',
+        pretrained=False,
+        ckpt_path='/work/FAC/FBM/DBC/mrapsoma/prometex/data/dinov1/logs/ssl-cords2024/j5wfik3n/checkpoints/module=student_backbone.backbone.ckpt'
+    )
+
+    # model_name='vit_small_patch16_224',
+    # ckpt_path='/work/FAC/FBM/DBC/mrapsoma/prometex/data/maev1/logs/ssl-cords2024/x3vllm0g/checkpoints/module=backbone.backbone.ckpt')
+    # global_pool='token',
+
+    class ResNetModelWrapper(nn.Module):
+        def __init__(self, model):
+            super(ResNetModelWrapper, self).__init__()
+            self.model = model
+
+        def forward(self, x):
+            return self.model(x)
+        
+        def conv_info(self):
+            return ResNet_features(BasicBlock, [2, 2, 2, 2]).conv_info()
+
+    model = Backbone(**kwargs)
+    model.backbone.global_pool = torch.nn.Identity()  # Remove global pooling
+    model = ResNetModelWrapper(model)
+
+    return model
 
 def resnet34_features(pretrained=False, **kwargs):
     """Constructs a ResNet-34 model.

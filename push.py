@@ -3,11 +3,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import os
-import copy
 import time
 
 from receptive_field import compute_rf_prototype
 from helpers import makedir, find_high_activation_crop
+
+import sys
+sys.path.append("/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/GNN_spatial")
+sys.path.append("/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/GNN_spatial/src")
+
+SAVE = True
 
 # push each prototype to the nearest patch in the training set
 def push_prototypes(dataloader, # pytorch dataloader (must be unnormalized in [0,1])
@@ -88,6 +93,7 @@ def push_prototypes(dataloader, # pytorch dataloader (must be unnormalized in [0
                                    proto_rf_boxes,
                                    proto_bound_boxes,
                                    class_specific=class_specific,
+                                   dataset=dataloader.dataset,
                                    search_y=search_y,
                                    num_classes=num_classes,
                                    preprocess_input_function=preprocess_input_function,
@@ -111,6 +117,7 @@ def push_prototypes(dataloader, # pytorch dataloader (must be unnormalized in [0
     end = time.time()
     log('\tpush time: \t{0}'.format(end -  start))
 
+
 # update each prototype for current search batch
 def update_prototypes_on_batch(search_batch_input,
                                start_index_of_search_batch,
@@ -120,6 +127,7 @@ def update_prototypes_on_batch(search_batch_input,
                                proto_rf_boxes, # this will be updated
                                proto_bound_boxes, # this will be updated
                                class_specific=True,
+                               dataset=None,
                                search_y=None, # required if class_specific == True
                                num_classes=None, # required if class_specific == True
                                preprocess_input_function=None,
@@ -128,6 +136,11 @@ def update_prototypes_on_batch(search_batch_input,
                                prototype_img_filename_prefix=None,
                                prototype_self_act_filename_prefix=None,
                                prototype_activation_function_in_numpy=None):
+
+    """
+    Desired changes:
+        - save everything in cell type space and in prototype space. 
+    """
 
     prototype_network_parallel.eval()
 
@@ -182,6 +195,7 @@ def update_prototypes_on_batch(search_batch_input,
             batch_argmin_proto_dist_j = \
                 list(np.unravel_index(np.argmin(proto_dist_j, axis=None),
                                       proto_dist_j.shape))
+            
             if class_specific:
                 '''
                 change the argmin index from the index among
@@ -190,6 +204,9 @@ def update_prototypes_on_batch(search_batch_input,
                 '''
                 batch_argmin_proto_dist_j[0] = class_to_img_index_dict[target_class][batch_argmin_proto_dist_j[0]]
 
+            dataset_index = batch_argmin_proto_dist_j[0] + start_index_of_search_batch
+            sample_id = dataset.samples[dataset_index][0].split("/")[-1].split(".")[0]
+            
             # retrieve the corresponding feature map patch
             img_index_in_batch = batch_argmin_proto_dist_j[0]
             fmap_height_start_index = batch_argmin_proto_dist_j[1] * prototype_layer_stride
@@ -257,49 +274,70 @@ def update_prototypes_on_batch(search_batch_input,
                 if prototype_self_act_filename_prefix is not None:
                     # save the numpy array of the prototype self activation
                     np.save(os.path.join(dir_for_saving_prototypes,
-                                         prototype_self_act_filename_prefix + str(j) + '.npy'),
+                                         prototype_self_act_filename_prefix + "-prototype-" + str(j) + "-sample-id-" + str(sample_id) + "-dataset_idx-" + str(dataset_index) + "-class-" + str(target_class) + '.npy'),
                             proto_act_img_j)
                 if prototype_img_filename_prefix is not None:
                     # save the whole image containing the prototype as png
-                    plt.imsave(os.path.join(dir_for_saving_prototypes,
-                                            prototype_img_filename_prefix + '-original' + str(j) + '.png'),
-                               original_img_j,
-                               vmin=0.0,
-                               vmax=1.0)
+                    if SAVE:
+                        plt.imsave(os.path.join(dir_for_saving_prototypes,
+                                                prototype_img_filename_prefix + '-original' + "-prototype-" + str(j) + "-sample-id-" + str(sample_id) + "-dataset_idx-" + str(dataset_index) + "-class-" + str(target_class) + '.png'),
+                                original_img_j,
+                                vmin=0.0,
+                                vmax=1.0)
+
+                    symlink_src = "/work/FAC/FBM/DBC/mrapsoma/prometex/data/NSCLC/02_processed/export/cell_type_imgs/" + sample_id + ".png"
+                    new_filename = (
+                        prototype_img_filename_prefix + '-original'
+                        + "-prototype-" + str(j)
+                        + "-sample-id-" + str(sample_id)
+                        + "-dataset_idx-" + str(dataset_index)
+                        + "-class-" + str(target_class)
+                        + "-cell-type.png"
+                    )
+                    symlink_dst = os.path.join(dir_for_saving_prototypes, new_filename)
+                    # Create symlink (safe check)
+                    if not os.path.exists(symlink_dst):
+                        os.symlink(symlink_src, symlink_dst)
+
                     # overlay (upsampled) self activation on original image and save the result
                     rescaled_act_img_j = upsampled_act_img_j - np.amin(upsampled_act_img_j)
                     rescaled_act_img_j = rescaled_act_img_j / np.amax(rescaled_act_img_j)
                     heatmap = cv2.applyColorMap(np.uint8(255*rescaled_act_img_j), cv2.COLORMAP_JET)
                     heatmap = np.float32(heatmap) / 255
                     heatmap = heatmap[...,::-1]
-                    overlayed_original_img_j = 0.5 * original_img_j + 0.3 * heatmap
-                    plt.imsave(os.path.join(dir_for_saving_prototypes,
-                                            prototype_img_filename_prefix + '-original_with_self_act' + str(j) + '.png'),
-                               overlayed_original_img_j,
-                               vmin=0.0,
-                               vmax=1.0)
+                    if SAVE:
+                        overlayed_original_img_j = 0.5 * original_img_j + 0.3 * heatmap
+                        plt.imsave(os.path.join(dir_for_saving_prototypes,
+                                                prototype_img_filename_prefix + '-original_with_self_act' + "-prototype-" + str(j) + "-sample-id-" + str(sample_id) + "-dataset_idx-" + str(dataset_index) + "-class-" + str(target_class) + '.png'),
+                                overlayed_original_img_j,
+                                vmin=0.0,
+                                vmax=1.0)
                     
                     # if different from the original (whole) image, save the prototype receptive field as png
-                    if rf_img_j.shape[0] != original_img_size or rf_img_j.shape[1] != original_img_size:
-                        plt.imsave(os.path.join(dir_for_saving_prototypes,
-                                                prototype_img_filename_prefix + '-receptive_field' + str(j) + '.png'),
-                                   rf_img_j,
-                                   vmin=0.0,
-                                   vmax=1.0)
-                        overlayed_rf_img_j = overlayed_original_img_j[rf_prototype_j[1]:rf_prototype_j[2],
-                                                                      rf_prototype_j[3]:rf_prototype_j[4]]
-                        plt.imsave(os.path.join(dir_for_saving_prototypes,
-                                                prototype_img_filename_prefix + '-receptive_field_with_self_act' + str(j) + '.png'),
-                                   overlayed_rf_img_j,
-                                   vmin=0.0,
-                                   vmax=1.0)
+                    if SAVE:
+                        if rf_img_j.shape[0] != original_img_size or rf_img_j.shape[1] != original_img_size:
+                            plt.imsave(os.path.join(dir_for_saving_prototypes,
+                                                    prototype_img_filename_prefix + '-receptive_field' + "-prototype-" + str(j) + "-sample-id-" + str(sample_id) + "-dataset_idx-" + str(dataset_index) + "-class-" + str(target_class) + '.png'),
+                                    rf_img_j,
+                                    vmin=0.0,
+                                    vmax=1.0)
+                            overlayed_rf_img_j = overlayed_original_img_j[rf_prototype_j[1]:rf_prototype_j[2],
+                                                                        rf_prototype_j[3]:rf_prototype_j[4]]
+                            if SAVE:
+                                plt.imsave(os.path.join(dir_for_saving_prototypes,
+                                                        prototype_img_filename_prefix + "-receptive_field_with_self_act" + "-prototype-" + str(j) + "-sample-id-" + str(sample_id) + "-dataset_idx-" + str(dataset_index) + "-class-" + str(target_class) +'.png'),
+                                        overlayed_rf_img_j,
+                                        vmin=0.0,
+                                        vmax=1.0)
                     
                     # save the prototype image (highly activated region of the whole image)
-                    plt.imsave(os.path.join(dir_for_saving_prototypes,
-                                            prototype_img_filename_prefix + str(j) + '.png'),
-                               proto_img_j,
-                               vmin=0.0,
-                               vmax=1.0)
+                    if SAVE:
+                        plt.imsave(os.path.join(dir_for_saving_prototypes,
+                                                prototype_img_filename_prefix + "-prototype-" + str(j) + "-sample-id-" + str(sample_id) + "-dataset_idx-" + str(dataset_index) + "-class-" + str(target_class) + '.png'),
+                                proto_img_j,
+                                vmin=0.0,
+                                vmax=1.0)
+
                 
     if class_specific:
         del class_to_img_index_dict

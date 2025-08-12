@@ -1,5 +1,6 @@
 import time
 import torch
+import wandb
 
 from helpers import list_of_distances, make_one_hot
 
@@ -120,6 +121,21 @@ def _train_or_test(model, dataloader, optimizer=None, class_specific=True, use_l
     with torch.no_grad():
         p_avg_pair_dist = torch.mean(list_of_distances(p, p))
     log('\tp dist pair: \t{0}'.format(p_avg_pair_dist.item()))
+
+    log_dict = {
+        "accuracy": n_correct / n_examples,
+        "cross entropy": total_cross_entropy / n_batches,
+        "cluster": total_cluster_cost / n_batches,
+        "separation": total_separation_cost / n_batches,
+        "avg separation": total_avg_separation_cost / n_batches,
+        "l1": model.module.last_layer.weight.norm(p=1).item(),
+        "p dist pair": p_avg_pair_dist.item(),
+    }
+
+    log_dict_prefix = "train_" if is_train else "test_"
+    log_dict = {log_dict_prefix + key: value for key, value in log_dict.items()}
+
+    wandb.log(log_dict)
 
     return n_correct / n_examples
 

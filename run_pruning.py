@@ -79,7 +79,7 @@ train_dataset = datasets.ImageFolder(
     ]))
 train_loader = torch.utils.data.DataLoader(
     train_dataset, batch_size=train_batch_size, shuffle=True,
-    num_workers=4, pin_memory=False)
+    num_workers=1, pin_memory=False)
 
 # test set
 test_dataset = datasets.ImageFolder(
@@ -91,7 +91,7 @@ test_dataset = datasets.ImageFolder(
     ]))
 test_loader = torch.utils.data.DataLoader(
     test_dataset, batch_size=test_batch_size, shuffle=False,
-    num_workers=4, pin_memory=False)
+    num_workers=1, pin_memory=False)
 
 log('training set size: {0}'.format(len(train_loader.dataset)))
 log('test set size: {0}'.format(len(test_loader.dataset)))
@@ -106,7 +106,7 @@ train_push_dataset = datasets.ImageFolder(
     ]))
 train_push_loader = torch.utils.data.DataLoader(
     train_push_dataset, batch_size=train_push_batch_size, shuffle=False,
-    num_workers=4, pin_memory=False)
+    num_workers=1, pin_memory=False)
     
 log('push set size: {0}'.format(len(train_push_loader.dataset)))
 
