@@ -13,7 +13,7 @@ from tqdm import tqdm
 import sys
 sys.path.append("/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/GNN_spatial")
 sys.path.append("/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/GNN_spatial/src")
-from src.gnn_spatial.dataset.NSCLCDataModule import NsclcImageDataset
+from data_utils.NSCLCDataModule import NsclcImageDataset
 
 nsclc_path = Path('/work/FAC/FBM/DBC/mrapsoma/prometex/data/NSCLC/02_processed')
 

@@ -1,1 +1,1 @@
-sbatch --wrap="source ../graph_archetype_discovery/gad/bin/activate; python main.py" --time=72:00:00 --mem=16G
+sbatch --wrap="source /work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/protopnet_env/bin/activate; python /work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/data_utils/get_posthoc_metrics.py" --time=72:00:00 --mem=16G

@@ -1,7 +1,7 @@
 ablate_prototype_selection = False
-base_architecture = 'resnet152'
+base_architecture = 'resnet18'
 img_size = 224
-prototype_shape = (20, 128, 1, 1)
+prototype_shape = (2, 128, 1, 1)
 num_classes = 2
 prototype_activation_function = 'log'
 add_on_layers_type = 'regular'
@@ -32,7 +32,7 @@ coefs = {
     'l1': 1e-4,
 }
 
-num_train_epochs = 1000
+num_train_epochs = 40
 num_warm_epochs = 5
 
 push_start = 10

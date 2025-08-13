@@ -351,17 +351,32 @@ def find_k_closest_per_prototype(
         top_scores[j] = top_scores[j][order]
         top_indices[j] = top_indices[j][order]
 
+        #### 
+        # given: img_idx, prototype_idx, network
+        # give a (img_height, img_width) array of the mask for the # prototype activation for the image
+
         if save_dir:
             proto_folder = os.path.join(save_dir, f"prototype_{j}")
             for rank, idx in enumerate(top_indices[j]):
-
+                # write image
                 sample_id = dataloader.dataset.samples[idx][0].split("/")[-1].split(".")[0]
 
                 img = dataloader.dataset[idx][0]
                 img = cv2.cvtColor(img.numpy().transpose(1, 2, 0), cv2.COLOR_RGB2BGR) * 255.
                 img_save_path = os.path.join(proto_folder, f"rank_{rank}_idx_{idx}_sample_{sample_id}.png")
                 cv2.imwrite(img_save_path,img)
+
+                # save proteomic masks
+                # img_idx = 2
+                # arr = prototype_network.push_forward(batch_input)[1]
+                # proto_dist_img_j = arr[img_idx, j, ...].cpu().numpy()
+                # proto_act_img_j = np.log((proto_dist_img_j + 1) / (proto_dist_img_j + prototype_network.epsilon))
+                # upsampled_act_img_j = cv2.resize(proto_act_img_j, dsize=(224, 224),
+                #                             interpolation=cv2.INTER_CUBIC)
+                # threshold = np.percentile(upsampled_act_img_j, 95)
+                # proto_mask = (upsampled_act_img_j > threshold).astype(np.uint32)
             
+                # plot cell masks
                 if save_cell_masks:
                     cell_type_plot, cell_type_to_num, num_to_cell_type = get_cell_type_mask(
                         sample_id, 
@@ -392,14 +407,13 @@ def get_prototype_specific_cell_type_mask(
     global_mapping = get_global_cell_type_mapping(dataloader.dataset, resolution=resolution)
 
     for prototype in tqdm(range(len(prototype_masks))):
-        prototype_specific_indices = top_image_indices.get('indices', {}).get(prototype, [])
-        if not prototype_specific_indices:
-            continue  # Skip if no indices for this prototype
+        prototype_specific_indices = top_image_indices.get('indices', {})[prototype]
 
         for idx in prototype_specific_indices:
             try:
-                img = dataloader.dataset[idx][0]
-                sample_id = img.split("/")[-1].split(".")[0]
+                # img = dataloader.dataset[idx][0]
+                pth = dataloader.dataset.samples[idx][0]
+                sample_id = pth.split("/")[-1].split(".")[0]
 
                 cell_type_plot, cell_type_to_num, num_to_cell_type = get_cell_type_mask(
                     sample_id, 
@@ -467,7 +481,7 @@ def get_prototype_activation_masks(
                 mask = get_mask(prototype_bounds)
             else:
                 pp95 = np.percentile(upsampled_act_img_j, 95)
-                mask = original_mask[upsampled_act_img_j > pp95]
+                mask = original_mask * (upsampled_act_img_j > pp95)
             
             if binarize:
                 mask = (mask > 0).astype(np.uint32)
@@ -630,7 +644,7 @@ if __name__ == "__main__":
     cell_prototype_masks, cell_type_to_num, num_to_cell_type = get_prototype_specific_cell_type_mask(
         top_image_indices, 
         prototype_masks, 
-        dataloader, 
+        dataloader=train_push_loader, 
         resolution=2
     )
 

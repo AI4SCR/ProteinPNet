@@ -65,13 +65,14 @@ from settings import train_dir, test_dir, train_push_dir, \
 
 # all datasets
 # train set
-# train_dir = "/users/lmcconn1/graph_archetype_discovery/notebooks/easy_dataset_larger/train"
-train_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/train_normed_cropped"
+train_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/graph_archetype_discovery/notebooks/easy_dataset_larger/train"
+# train_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/train_normed_cropped"
 # train_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/train_normed_cropped_only_morphology"
 # train_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/train_normed_43dim"
 
 train_push_dir = train_dir
-test_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/test_normed_cropped"
+test_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/graph_archetype_discovery/notebooks/easy_dataset_larger/test"
+# test_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/test_normed_cropped"
 # test_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/test_normed_cropped_only_morphology"
 # test_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/test_normed_43dim"
 
@@ -81,7 +82,9 @@ train_dataset = datasets.ImageFolder(
     train_dir,
     transforms.Compose([
         transforms.Resize(size=(img_size, img_size)),
-        transforms.RandomRotation(degrees=(-180, 180)),
+        # transforms.RandomRotation(degrees=(-180, 180)),
+        # transforms.RandomHorizontalFlip(p=0.5),
+        # transforms.RandomVerticalFlip(p=0.5),
         transforms.ToTensor(),
         # normalize,
     ]))
