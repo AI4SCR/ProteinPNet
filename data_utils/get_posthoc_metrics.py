@@ -52,7 +52,7 @@ def get_global_cell_type_mapping(dataset, resolution=2, force_recompute=False, c
     else:
         raise ValueError("Resolution must be 0, 1, or 2")
     
-    cache_path = Path(cache_path)
+    cache_path = Path(f"res_{resolution}_{cache_path}")
     if not force_recompute and cache_path.exists():
         print(joblib.load(cache_path))
         return joblib.load(cache_path)
@@ -60,7 +60,7 @@ def get_global_cell_type_mapping(dataset, resolution=2, force_recompute=False, c
     # Get all unique cell types across all patients
     all_cell_types = set()
     # Assuming you have a way to get all patient IDs
-    for patient_id in get_all_patient_ids(dataset):  # You'll need to implement this
+    for patient_id in tqdm(get_all_patient_ids(dataset), desc="Getting cell type mapping from all patients"):  # You'll need to implement this
         adata = get_anndata(patient_id)
         all_cell_types.update(adata.obs[res_key].unique())
     
@@ -295,6 +295,7 @@ def find_k_closest_per_prototype(
     k=5,
     preprocess_input_function=None,
     save_cell_masks=False,
+    cell_mask_resolution=1,
     save_dir=None,  # New optional kwarg: if set, save images here
 ):
     """
@@ -322,7 +323,7 @@ def find_k_closest_per_prototype(
         for proto_id in range(n_prototypes):
             os.makedirs(os.path.join(save_dir, f"prototype_{proto_id}"), exist_ok=True)
     
-    global_mapping = get_global_cell_type_mapping(dataloader.dataset, resolution=2)
+    global_mapping = get_global_cell_type_mapping(dataloader.dataset, resolution=cell_mask_resolution)
 
     for batch_idx, (batch_input, _) in tqdm(enumerate(dataloader)):
         start_idx = batch_idx * dataloader.batch_size
@@ -331,7 +332,7 @@ def find_k_closest_per_prototype(
             batch_input = preprocess_input_function(batch_input)
         
         with torch.no_grad():
-            batch_input = batch_input.cuda()
+            batch_input = batch_input.to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
             _, prototype_scores = prototype_network(batch_input)
         
         curr_indices = start_idx + np.arange(len(batch_input))
@@ -380,7 +381,7 @@ def find_k_closest_per_prototype(
                 if save_cell_masks:
                     cell_type_plot, cell_type_to_num, num_to_cell_type = get_cell_type_mask(
                         sample_id, 
-                        resolution=2,
+                        resolution=cell_mask_resolution,
                         global_mapping=global_mapping
                     )
                     plot_cell_type(
@@ -409,7 +410,7 @@ def get_prototype_specific_cell_type_mask(
     for prototype in tqdm(range(len(prototype_masks))):
         prototype_specific_indices = top_image_indices.get('indices', {})[prototype]
 
-        for idx in prototype_specific_indices:
+        for idx in tqdm(prototype_specific_indices, desc=f"Processing prototype {prototype}"):
             try:
                 # img = dataloader.dataset[idx][0]
                 pth = dataloader.dataset.samples[idx][0]
@@ -422,7 +423,13 @@ def get_prototype_specific_cell_type_mask(
                 )
 
                 mask = prototype_masks[prototype][idx]
-                cell_type_masks[prototype][idx] = cell_type_plot * (mask > 0).astype(cell_type_plot.dtype)
+                cell_type_layer = cell_type_plot * (mask[..., 0] > 0).astype(cell_type_plot.dtype)
+                updated_mask = np.concatenate([mask, cell_type_layer[..., None]], axis=-1)
+                cell_type_masks[prototype][idx] = updated_mask
+                # layers:
+                    # 0: original cell number mask
+                    # 1: prototype activation mask (continuous)
+                    # 2: cell type mask (0 for background, else cell type number)
             except Exception as e:
                 print(f"Error processing index {idx} for prototype {prototype}: {e}")
                 continue
@@ -435,6 +442,7 @@ def get_prototype_activation_masks(
     dataloader,
     binarize=True,
     crop=False,
+    threshold_mask=False,
     ):  
     """
     Gets (cell OR pixel) x (binary OR cell type) non-spatial mask for the k patches with highest prototype activation.
@@ -446,8 +454,8 @@ def get_prototype_activation_masks(
     for prototype in tqdm(range(prototype_network.num_prototypes)):
         prototype_specific_indices = top_image_indices['indices'][prototype]
         for idx in prototype_specific_indices:
-            img = dataloader.dataset[idx][0]
-            _, proto_dist_torch = prototype_network.push_forward(img.cuda().unsqueeze(0))
+            img = dataloader.dataset[idx][0].to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+            _, proto_dist_torch = prototype_network.push_forward(img.unsqueeze(0))
 
             # proto_dist_img_j = proto_dist_[img_index_in_batch, j, :, :]
             proto_dist_img_j = proto_dist_torch[0, prototype, ...]
@@ -480,8 +488,12 @@ def get_prototype_activation_masks(
                 proto_bound_j = find_high_activation_crop(upsampled_act_img_j)
                 mask = get_mask(prototype_bounds)
             else:
-                pp95 = np.percentile(upsampled_act_img_j, 95)
-                mask = original_mask * (upsampled_act_img_j > pp95)
+                if threshold_mask:
+                    pp95 = np.percentile(upsampled_act_img_j, 95)
+                    mask = original_mask * (upsampled_act_img_j > pp95)
+                else:
+                    upsampled_act_img_j = upsampled_act_img_j * (original_mask > 0).astype(upsampled_act_img_j.dtype)
+                    mask = np.concatenate([original_mask[..., None], upsampled_act_img_j[..., None]], axis=-1)   
             
             if binarize:
                 mask = (mask > 0).astype(np.uint32)
@@ -599,8 +611,13 @@ if __name__ == "__main__":
     # 1. load dataloader
     train_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/train_normed_cropped"
     base = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/saved_models"
-    run = "resnet152/electric-deluge-9"
-    checkpoint = "60_9push0.8037"
+    # run = "resnet152/electric-deluge-9"
+    run = "resnet152/azure-dream-77"
+    checkpoint = "30_18push0.8098"
+    resolution = 1
+    # checkpoint = "60_9push0.8037"
+    artifact_path = os.path.join(base, run, "artifacts")
+    os.makedirs(artifact_path, exist_ok=True)
     train_push_dir = train_dir
 
     train_push_dataset = datasets.ImageFolder(
@@ -623,8 +640,10 @@ if __name__ == "__main__":
     top_image_indices = find_k_closest_per_prototype(
         dataloader=train_push_loader,
         prototype_network=ppnet,
-        k=15,
-        save_dir=save_dir
+        k=100,
+        save_dir=save_dir,
+        cell_mask_resolution=resolution,
+        save_cell_masks=False,
     )
 
 #     # import joblib
@@ -639,16 +658,19 @@ if __name__ == "__main__":
         dataloader=train_push_loader,
         top_image_indices=top_image_indices,
         prototype_network=ppnet,
+        threshold_mask=False,
+        binarize=False,
     )
 
+    # transform the masks from prototype activation masks to cell type masks
     cell_prototype_masks, cell_type_to_num, num_to_cell_type = get_prototype_specific_cell_type_mask(
         top_image_indices, 
         prototype_masks, 
         dataloader=train_push_loader, 
-        resolution=2
+        resolution=resolution,
     )
 
-    joblib.dump([cell_prototype_masks, cell_type_to_num, num_to_cell_type], "cell_prototype_masks.joblib")
+    joblib.dump([cell_prototype_masks, cell_type_to_num, num_to_cell_type], os.path.join(artifact_path, f"cell_prototype_masks_res{resolution}.joblib"))
     
 #     # # masks = joblib.load("masks.joblib")
 #     # # print("masks generated")
@@ -656,13 +678,15 @@ if __name__ == "__main__":
 #     # joblib.dump(masks, "masks.joblib")
 
 #     # # 5. get matrix from masks
-#     # results = get_matrix_from_masks(
-#     #     masks=masks,
-#     #     top_image_indices=top_image_indices,
-#     #     prototype_network=ppnet,
-#     #     dataloader=train_push_loader,
-#     #     aggregate_by_cell_type=True,
-#     # )
+    # results = get_matrix_from_masks(
+    #     masks=prototype_masks,
+    #     top_image_indices=top_image_indices,
+    #     prototype_network=ppnet,
+    #     dataloader=train_push_loader,
+    #     aggregate_by_cell_type=True,
+    # )
+
+    # joblib.dump(results, "results.joblib")
 
 #     # print("results done")
 
