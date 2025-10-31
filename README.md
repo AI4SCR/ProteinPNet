@@ -1,6 +1,5 @@
 This code package implements the prototypical part network as applied to spatial proteomics (ProteinPNet)
-from the paper ""
-(to appear at NeurIPS 2025 workshop for Imageomics), by Louis McConnell, Jieran Sun, Theo Maffei, Raphael Gottardo, and Marianna Rapsomaniki.
+from the paper "ProteinPNet" (to appear at NeurIPS 2025 workshop for Imageomics), by Louis McConnell, Jieran Sun, Theo Maffei, Raphael Gottardo, and Marianna Rapsomaniki.
 
 This code package was licensed under MIT License (see LICENSE for more information regarding the use
 and the distribution of this code package).
