@@ -65,134 +65,134 @@ from settings import train_dir, test_dir, train_push_dir, \
 
 # all datasets
 # train set
-train_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/graph_archetype_discovery/notebooks/easy_dataset_larger/train"
+# train_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/graph_archetype_discovery/notebooks/easy_dataset_larger/train"
 # train_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/train_normed_cropped"
 # train_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/train_normed_cropped_only_morphology"
-# train_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/train_normed_43dim"
+train_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/train_normed_43dim"
 
 train_push_dir = train_dir
-test_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/graph_archetype_discovery/notebooks/easy_dataset_larger/test"
+# test_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/graph_archetype_discovery/notebooks/easy_dataset_larger/test"
 # test_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/test_normed_cropped"
 # test_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/test_normed_cropped_only_morphology"
-# test_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/test_normed_43dim"
+test_dir = "/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/datasets/nsclc/test_normed_43dim"
 
 
-# # test_dir = "/users/lmcconn1/graph_archetype_discovery/notebooks/easy_dataset_larger/test"
-train_dataset = datasets.ImageFolder(
-    train_dir,
-    transforms.Compose([
-        transforms.Resize(size=(img_size, img_size)),
-        # transforms.RandomRotation(degrees=(-180, 180)),
-        # transforms.RandomHorizontalFlip(p=0.5),
-        # transforms.RandomVerticalFlip(p=0.5),
-        transforms.ToTensor(),
-        # normalize,
-    ]))
-train_loader = torch.utils.data.DataLoader(
-    train_dataset, batch_size=train_batch_size, shuffle=True,
-    num_workers=1, pin_memory=False)
-# push set
-train_push_dataset = datasets.ImageFolder(
-    train_push_dir,
-    transforms.Compose([
-        transforms.Resize(size=(img_size, img_size)),
-        transforms.ToTensor(),
-    ]))
-train_push_loader = torch.utils.data.DataLoader(
-    train_push_dataset, batch_size=train_push_batch_size, shuffle=False,
-    num_workers=1, pin_memory=False)
-# test set
-test_dataset = datasets.ImageFolder(
-    test_dir,
-    transforms.Compose([
-        transforms.Resize(size=(img_size, img_size)),
-        transforms.ToTensor(),
-        # normalize,
-    ]))
-test_loader = torch.utils.data.DataLoader(
-    test_dataset, batch_size=test_batch_size, shuffle=False,
-    num_workers=1, pin_memory=False)
-
-# import numpy as np
-
-# class TiffImageFolder(datasets.ImageFolder):
-#     def __init__(self, root, transform=None, target_transform=None, loader=None):
-#         super().__init__(root, transform=transform, target_transform=target_transform, loader=loader or self.tiff_loader)
-
-#     @staticmethod
-#     def tiff_loader(path):
-#         img = tifffile.imread(path).astype(np.float32)
-
-#         # Convert to (C, H, W)
-#         if img.ndim == 2:  # grayscale
-#             img = img[None, :, :]
-#         elif img.shape[-1] <= 4 or img.shape[-1] == 43:  # channels last
-#             img = np.moveaxis(img, -1, 0)
-
-#         return torch.from_numpy(img)
-
-
-# class Augment43Channels(torch.nn.Module):
-#     def __init__(self, img_size, is_train=True):
-#         super().__init__()
-#         self.img_size = img_size
-#         self.is_train = is_train
-#         self.aug = torch.nn.Sequential(
-#             K.RandomRotation(degrees=30, p=0.5),
-#             K.RandomHorizontalFlip(p=0.5),
-#             K.RandomVerticalFlip(p=0.5),
-#         )
-
-#     def forward(self, x):
-#         # Kornia expects batched input: (B, C, H, W)
-#         is_batched = True
-#         if x.ndim == 3:
-#             x = x.unsqueeze(0)
-#             is_batched = False
-
-#         if self.is_train: 
-#             x = self.aug(x)
-
-#         x = KT.resize(x, (self.img_size, self.img_size), interpolation='bilinear', align_corners=False)
-
-#         if not is_batched:
-#             x = x.squeeze(0)
-
-#         return x
-
-
-
-# ---- Usage ----
-# augment_train = Augment43Channels(img_size=img_size, is_train=True)
-# augment_train_push = Augment43Channels(img_size=img_size, is_train=False)
-# augment_test = Augment43Channels(img_size=img_size, is_train=False)
-
-# train_dataset = TiffImageFolder(
-#     root=train_dir,
-#     transform=augment_train
-# )
-
-# train_push_dataset = TiffImageFolder(
-#     root=train_push_dir,
-#     transform=augment_train_push
-# )
-
-# test_dataset = TiffImageFolder(
-#     root=test_dir,
-#     transform=augment_test,
-# )
-
+# # # test_dir = "/users/lmcconn1/graph_archetype_discovery/notebooks/easy_dataset_larger/test"
+# train_dataset = datasets.ImageFolder(
+#     train_dir,
+#     transforms.Compose([
+#         transforms.Resize(size=(img_size, img_size)),
+#         transforms.RandomRotation(degrees=(-180, 180)),
+#         transforms.RandomHorizontalFlip(p=0.5),
+#         transforms.RandomVerticalFlip(p=0.5),
+#         transforms.ToTensor(),
+#         # normalize,
+#     ]))
 # train_loader = torch.utils.data.DataLoader(
-#     train_push_dataset, batch_size=train_batch_size, shuffle=False,
+#     train_dataset, batch_size=train_batch_size, shuffle=True,
 #     num_workers=1, pin_memory=False)
+# # push set
+# train_push_dataset = datasets.ImageFolder(
+#     train_push_dir,
+#     transforms.Compose([
+#         transforms.Resize(size=(img_size, img_size)),
+#         transforms.ToTensor(),
+#     ]))
 # train_push_loader = torch.utils.data.DataLoader(
 #     train_push_dataset, batch_size=train_push_batch_size, shuffle=False,
 #     num_workers=1, pin_memory=False)
 # # test set
-
+# test_dataset = datasets.ImageFolder(
+#     test_dir,
+#     transforms.Compose([
+#         transforms.Resize(size=(img_size, img_size)),
+#         transforms.ToTensor(),
+#         # normalize,
+#     ]))
 # test_loader = torch.utils.data.DataLoader(
 #     test_dataset, batch_size=test_batch_size, shuffle=False,
 #     num_workers=1, pin_memory=False)
+
+import numpy as np
+
+class TiffImageFolder(datasets.ImageFolder):
+    def __init__(self, root, transform=None, target_transform=None, loader=None):
+        super().__init__(root, transform=transform, target_transform=target_transform, loader=loader or self.tiff_loader)
+
+    @staticmethod
+    def tiff_loader(path):
+        img = tifffile.imread(path).astype(np.float32)
+
+        # Convert to (C, H, W)
+        if img.ndim == 2:  # grayscale
+            img = img[None, :, :]
+        elif img.shape[-1] <= 4 or img.shape[-1] == 43:  # channels last
+            img = np.moveaxis(img, -1, 0)
+
+        return torch.from_numpy(img)
+
+
+class Augment43Channels(torch.nn.Module):
+    def __init__(self, img_size, is_train=True):
+        super().__init__()
+        self.img_size = img_size
+        self.is_train = is_train
+        self.aug = torch.nn.Sequential(
+            K.RandomRotation(degrees=180, p=0.5),
+            K.RandomHorizontalFlip(p=0.5),
+            K.RandomVerticalFlip(p=0.5),
+        )
+
+    def forward(self, x):
+        # Kornia expects batched input: (B, C, H, W)
+        is_batched = True
+        if x.ndim == 3:
+            x = x.unsqueeze(0)
+            is_batched = False
+
+        if self.is_train: 
+            x = self.aug(x)
+
+        x = KT.resize(x, (self.img_size, self.img_size), interpolation='bilinear', align_corners=False)
+
+        if not is_batched:
+            x = x.squeeze(0)
+
+        return x
+
+
+
+# ---- Usage ----
+augment_train = Augment43Channels(img_size=img_size, is_train=True)
+augment_train_push = Augment43Channels(img_size=img_size, is_train=False)
+augment_test = Augment43Channels(img_size=img_size, is_train=False)
+
+train_dataset = TiffImageFolder(
+    root=train_dir,
+    transform=augment_train
+)
+
+train_push_dataset = TiffImageFolder(
+    root=train_push_dir,
+    transform=augment_train_push,
+)
+
+test_dataset = TiffImageFolder(
+    root=test_dir,
+    transform=augment_test,
+)
+
+train_loader = torch.utils.data.DataLoader(
+    train_dataset, batch_size=train_batch_size, shuffle=True,
+    num_workers=1, pin_memory=False)
+train_push_loader = torch.utils.data.DataLoader(
+    train_push_dataset, batch_size=train_push_batch_size, shuffle=False,
+    num_workers=1, pin_memory=False)
+# test set
+
+test_loader = torch.utils.data.DataLoader(
+    test_dataset, batch_size=test_batch_size, shuffle=False,
+    num_workers=1, pin_memory=False)
 
 # we should look into distributed sampler more carefully at torch.utils.data.distributed.DistributedSampler(train_dataset)
 log('training set size: {0}'.format(len(train_loader.dataset)))

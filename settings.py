@@ -1,5 +1,5 @@
 ablate_prototype_selection = False
-base_architecture = 'resnet18'
+base_architecture = 'resnet18_cords'
 img_size = 224
 prototype_shape = (2, 128, 1, 1)
 num_classes = 2

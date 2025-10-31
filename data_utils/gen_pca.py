@@ -1,5 +1,4 @@
 from skimage.io import imread
-import anndata 
 from pathlib import Path
 import networkx as nx
 import pandas as pd
@@ -13,17 +12,18 @@ from tqdm import tqdm
 import sys
 sys.path.append("/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/GNN_spatial")
 sys.path.append("/work/FAC/FBM/DBC/mrapsoma/prometex/projects/ProtoPNet/GNN_spatial/src")
-from data_utils.NSCLCDataModule import NsclcImageDataset
+# from data_utils.NSCLCDataModule import NsclcImageDataset
 
-nsclc_path = Path('/work/FAC/FBM/DBC/mrapsoma/prometex/data/NSCLC/02_processed')
+# nsclc_path = Path('/work/FAC/FBM/DBC/mrapsoma/prometex/data/NSCLC/02_processed')
+pca_path = Path('/work/FAC/FBM/DBC/mrapsoma/prometex/data/datasets/PCa/02_processed')
 
-mask_path = nsclc_path / 'masks/20250430_cell_masks'
-anndata_base_path = nsclc_path / 'export/20250512_adata_graphs'
-all_cells_anndata_path = nsclc_path / 'sce_objects/sce.h5ad'
-metadata_path = nsclc_path / 'metadata/clinical.parquet'
-img_path = nsclc_path / 'images/images_mcd'
+mask_path = pca_path / 'masks/filtered'
+# anndata_base_path = nsclc_path / 'export/20250512_adata_graphs'
+# all_cells_anndata_path = nsclc_path / 'sce_objects/sce.h5ad'
+# metadata_path = nsclc_path / 'metadata/clinical.parquet'
+image_path = pca_path / 'images/filtered'
 
-df_metadata = pd.read_parquet(metadata_path)
+# df_metadata = pd.read_parquet(metadata_path)
 
 """
 Helper script that takes a folder as input and generates a PCA on the dna-free, arcsinh'ed, 
@@ -33,21 +33,12 @@ def get_mask(patient_id):
     patient_mask_path = mask_path / f"{patient_id}.tiff"
     return imread(patient_mask_path)
 
-def get_anndata(patient_id): 
-    return anndata.read_h5ad(anndata_base_path / f'{patient_id}.h5ad')
-
-def get_tumor_type(patient_id):
-    return get_anndata(patient_id).obs['DX.name'].iloc[0]
-
 def get_image(patient_id):
-    patient_img_path = img_path / f"{patient_id}.tiff"
+    patient_img_path = image_path / f"{patient_id}.tiff"
     return imread(patient_img_path)
 
 import tifffile
-
 from tqdm import tqdm
-
-IRIDIUM_INDICES = [38, 39]
 
 def get_raw_pixel_matrix(from_aggregated=True, file_limit=None):
     def get_patient_id(img_path):
@@ -56,11 +47,33 @@ def get_raw_pixel_matrix(from_aggregated=True, file_limit=None):
         return img_path.split("/")[-1].split(".")[0]
     
     # Define source directory based on the flag
-    base_dir = Path('/work/FAC/FBM/DBC/mrapsoma/prometex/data/NSCLC/02_processed')
-    if from_aggregated:
-        src_dir = base_dir / 'images/images_mcd_masked_averaged'
-    else:
-        src_dir = base_dir / 'images/images_mcd_masked'
+    # base_dir = Path('/work/FAC/FBM/DBC/mrapsoma/prometex/data/datasets/PCa/02_processed')
+    # for NSCLC data
+    # if from_aggregated:
+    #     src_dir = base_dir / 'images/images_mcd_masked_averaged'
+    # else:
+    #     src_dir = base_dir / 'images/images_mcd_masked'
+
+    # src_dir = base_dir / 'images/filtered'
+
+    # nsclc_path = Path('/work/FAC/FBM/DBC/mrapsoma/prometex/data/NSCLC/02_processed')
+    pca_path = Path('/work/FAC/FBM/DBC/mrapsoma/prometex/data/datasets/PCa/02_processed')
+
+    mask_path = pca_path / 'masks/filtered'
+    # anndata_base_path = nsclc_path / 'export/20250512_adata_graphs'
+    # all_cells_anndata_path = nsclc_path / 'sce_objects/sce.h5ad'
+    # metadata_path = nsclc_path / 'metadata/clinical.parquet'
+    image_path = pca_path / 'images/filtered'
+
+    def get_mask(patient_id):
+        patient_mask_path = mask_path / f"{patient_id}.tiff"
+        return imread(patient_mask_path)
+
+    def get_image(patient_id):
+        patient_img_path = image_path / f"{patient_id}.tiff"
+        return imread(patient_img_path)
+
+    src_dir = image_path
 
     pixel_list = []
     
@@ -103,7 +116,7 @@ def preprocess(raw_pixel_array):
         'clip_upper': [],
     }
 
-    for k in range(raw_pixel_array.shape[0]):
+    for k in tqdm(range(raw_pixel_array.shape[0])):
         lower_bound = np.percentile(raw_pixel_array[k], 0)
         upper_bound = np.percentile(raw_pixel_array[k], 99)
 
@@ -147,17 +160,20 @@ def create_pca_transform(pca_input, n_components=None):
 if __name__ == "__main__":
     print("getting pca input...")
     pca_input = get_raw_pixel_matrix(from_aggregated=False)
+    print("preprocessing pca input...")
     processed_pca_input, summary_dict = preprocess(pca_input)
     print("...done.")
 
     print("fitting pca...")
-    # pca = create_pca_transform(processed_pca_input, n_components=3)
+    pca = create_pca_transform(processed_pca_input, n_components=3)
     print("...done.")
 
     print("dumping pca...")
     from joblib import dump, load
-    # dump(pca, 'pca_model_no_dna_normalized.joblib')
-    dump(summary_dict, 'preprocessing_stats_43dim.joblib')
+    dump(pca, 'pca_pca_model.joblib')
+    
+    print("dumping summary dict...")
+    dump(summary_dict, 'pca_preprocessing_stats_43dim.joblib')
     print("...done")
 
     print("dumped pca")
